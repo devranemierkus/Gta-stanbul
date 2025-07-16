@@ -1,0 +1,61 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GTA Istanbul: Sehrin Krali</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #000; }
+    canvas { display: block; }
+    #joystickContainer {
+      position: absolute;
+      bottom: 50px;
+      left: 50px;
+      width: 100px;
+      height: 100px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      touch-action: none;
+    }
+    #joystick {
+      width: 60px;
+      height: 60px;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 50%;
+      position: absolute;
+      top: 20px;
+      left: 20px;
+    }
+    #enterCarBtn {
+      position: absolute;
+      bottom: 50px;
+      right: 50px;
+      width: 80px;
+      height: 80px;
+      background: url('car-icon.png') no-repeat center center / contain;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+<div id="joystickContainer">
+  <div id="joystick"></div>
+</div>
+<div id="enterCarBtn"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r148/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.0/dist/nipplejs.min.js"></script>
+<script>
+  // Sahne ve kamera kurulum
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+  const renderer = new THREE.WebGLRenderer();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);// Işık const light = new THREE.DirectionalLight(0xffffff, 1); light.position.set(10, 20, 10); scene.add(light);
+
+// Zemin const ground = new THREE.Mesh( new THREE.PlaneGeometry(1000, 1000), new THREE.MeshPhongMaterial({ color: 0x556b2f }) ); ground.rotation.x = -Math.PI / 2; scene.add(ground);
+
+// Gerçekçi karakter modeli yerine insan temsili olarak silindiri kullanalım const player = new THREE.Mesh( new THREE.CylinderGeometry(0.5, 0.5, 2, 16), new THREE.MeshStandardMaterial({ color: 0xff0000 }) ); player.position.y = 1; scene.add(player);
+
+// Araba const car = new THREE.Mesh( new THREE.BoxGeometry(2, 1, 4), new THREE.MeshPhongMaterial({ color: 0x3333ff }) ); car.position.set(5, 0.5, 0); scene.add(car);
+
+// Kamera pozisyonu camera.position.set(0, 5, -10); camera.lookAt(player.position);
+
+// Joystick let joystickManager = nipplejs.create({ zone: document.getElementById('joystickContainer'), mode: 'static',
