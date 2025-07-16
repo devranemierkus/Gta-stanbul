@@ -1,59 +1,61 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8" />
-  <title>GTA İstanbul - Animasyonlu Karakter ve Joystick</title>
-  <style>
-    body, html {
-      margin:0; padding:0; overflow:hidden; touch-action:none;
-      background:#87ceeb;
-      font-family: Arial, sans-serif;
-      height: 100vh;
-      width: 100vw;
-    }
-    #joyContainer {
-      position: fixed;
-      bottom: 30px;
-      left: 30px;
-      width: 120px;
-      height: 120px;
-      background: rgba(0,0,0,0.3);
-      border-radius: 50%;
-      touch-action: none;
-      user-select: none;
-      z-index: 10;
-    }
-    #joyStick {
-      position: absolute;
-      width: 60px;
-      height: 60px;
-      background: rgba(255,255,255,0.7);
-      border-radius: 50%;
-      left: 30px;
-      top: 30px;
-      touch-action: none;
-    }
-    canvas {
-      display: block;
-      position: fixed;
-      top: 0; left: 0;
-      z-index: 0;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>GTA İstanbul - Mixamo Model + Joystick Demo</title>
+<style>
+  html, body {
+    margin:0; padding:0; overflow:hidden;
+    background:#121212;
+    user-select:none;
+    touch-action:none;
+  }
+  #joyContainer {
+    position: fixed;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 180px; height: 180px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 50%;
+    box-shadow: inset 0 0 20px #00ffeaaa;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index:10;
+    touch-action:none;
+  }
+  #joyStick {
+    width: 90px; height: 90px;
+    background: rgba(0,255,234,0.85);
+    border-radius: 50%;
+    box-shadow: 0 0 25px #00fffaaa;
+    user-select:none;
+    touch-action:none;
+    transition: background 0.3s ease;
+  }
+  #joyStick.active {
+    background: rgba(0,180,200,0.9);
+  }
+  canvas {
+    display:block;
+    position: fixed;
+    top:0; left:0;
+    z-index:0;
+  }
+</style>
 </head>
 <body>
 
-<div id="joyContainer">
-  <div id="joyStick"></div>
-</div>
+<div id="joyContainer"><div id="joyStick"></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.148.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.148.0/examples/js/loaders/GLTFLoader.js"></script>
 
 <script>
-  // Temel scene, kamera, renderer
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87ceeb); // gökyüzü mavisi
+  scene.background = new THREE.Color(0x121212);
 
   const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
   const renderer = new THREE.WebGLRenderer({antialias:true});
@@ -61,167 +63,174 @@
   document.body.appendChild(renderer.domElement);
 
   // Zemin
-  const groundGeo = new THREE.PlaneGeometry(1000, 1000);
-  const groundMat = new THREE.MeshStandardMaterial({color: 0x228B22});
-  const ground = new THREE.Mesh(groundGeo, groundMat);
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(500, 500),
+    new THREE.MeshStandardMaterial({color: 0x222222})
+  );
   ground.rotation.x = -Math.PI/2;
-  ground.receiveShadow = true;
   scene.add(ground);
 
   // Işıklar
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-  dirLight.position.set(10, 20, 10);
-  dirLight.castShadow = true;
-  scene.add(dirLight);
-
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+  const ambientLight = new THREE.AmbientLight(0x404040, 2);
   scene.add(ambientLight);
 
-  // Değişkenler
-  let mixer, model;
-  const clock = new THREE.Clock();
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+  dirLight.position.set(10, 20, 10);
+  scene.add(dirLight);
 
-  // Karakter yükleyici (örnek model: küçük, Mixamo uyumlu ücretsiz)
-  const loader = new THREE.GLTFLoader();
-  // Model URL'si - Mixamo uyumlu, animasyonlu bir model (ücretsiz, halka açık)
-  const modelUrl = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/RobotExpressive/glTF/RobotExpressive.glb';
+  // Kamera kontrol değişkenleri
+  let cameraAngle = 0;
+  const maxCameraAngle = Math.PI / 2; // 90 derece
+  const cameraDistance = 8;
+  const cameraHeight = 5;
 
-  loader.load(modelUrl, (gltf) => {
-    model = gltf.scene;
-    model.scale.set(1.5,1.5,1.5);
-    model.position.y = 0;
-    model.castShadow = true;
-    scene.add(model);
-
-    mixer = new THREE.AnimationMixer(model);
-
-    // İlk animasyon olarak idle oynat
-    const idleAction = mixer.clipAction(gltf.animations[0]);
-    idleAction.play();
-  }, undefined, (e) => {
-    console.error('Model yüklenirken hata:', e);
-  });
-
-  // Kamera başlangıç
-  camera.position.set(0, 5, -10);
-
-  // Joystick tanımlaması
+  // Joystick
   const joyContainer = document.getElementById('joyContainer');
   const joyStick = document.getElementById('joyStick');
+
   let dragging = false;
   let dragStartX = 0;
   let dragStartY = 0;
 
-  const maxDistance = 40;
+  const maxDistanceX = 80;
+  const maxDistanceY = 80;
+
   let moveX = 0;
   let moveZ = 0;
 
-  joyStick.style.transform = `translate(0px, 0px)`;
+  joyStick.style.transform = 'translate(0px, 0px)';
 
-  joyStick.addEventListener('pointerdown', (e) => {
+  joyStick.addEventListener('pointerdown', e => {
     dragging = true;
     dragStartX = e.clientX;
     dragStartY = e.clientY;
+    joyStick.classList.add('active');
   });
-  window.addEventListener('pointerup', (e) => {
+  window.addEventListener('pointerup', () => {
     dragging = false;
     joyStick.style.transition = 'transform 0.3s ease';
-    joyStick.style.transform = `translate(0px, 0px)`;
+    joyStick.style.transform = 'translate(0px, 0px)';
     moveX = 0;
     moveZ = 0;
+    joyStick.classList.remove('active');
     setTimeout(() => joyStick.style.transition = '', 300);
   });
-  window.addEventListener('pointermove', (e) => {
+  window.addEventListener('pointermove', e => {
     if (!dragging) return;
     let deltaX = e.clientX - dragStartX;
     let deltaY = e.clientY - dragStartY;
 
-    let distance = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
-    if(distance > maxDistance) {
-      const angle = Math.atan2(deltaY, deltaX);
-      deltaX = Math.cos(angle)*maxDistance;
-      deltaY = Math.sin(angle)*maxDistance;
-    }
+    if (deltaX > maxDistanceX) deltaX = maxDistanceX;
+    else if (deltaX < -maxDistanceX) deltaX = -maxDistanceX;
+
+    if (deltaY > maxDistanceY) deltaY = maxDistanceY;
+    else if (deltaY < -maxDistanceY) deltaY = -maxDistanceY;
 
     joyStick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
 
-    // Hareket değerlerini normalize et
-    moveX = deltaX / maxDistance;
-    moveZ = -deltaY / maxDistance;
+    moveX = deltaX / maxDistanceX;
+    moveZ = -deltaY / maxDistanceY;
   });
 
-  // Klavye kontrolleri
-  const keys = {};
-  window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-  window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+  // Model ve animasyon değişkenleri
+  let mixer;
+  const clock = new THREE.Clock();
+  let player;
 
-  // Hareket ve animasyon kontrolü
+  const loader = new THREE.GLTFLoader();
+
+  // Ücretsiz ve hızlı çalışan Mixamo model GLB dosyasını CDN üzerinden alıyoruz (takım elbiseli adam)
+  // Model URL'si: https://github.com/KhronosGroup/glTF-Sample-Models/raw/master/2.0/WalkingLady/glTF/WalkingLady.glb
+  // (Bu modelde animasyon ve hareket var, takım elbise yok ama demo için uygun.)
+  // Daha gerçek takım elbise için Mixamo'dan kendin indirebilirsin, ama senin dediğin gibi indirmezsen bunu kullan.
+
+  loader.load(
+    'https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/WalkingLady/glTF/WalkingLady.glb',
+    function(gltf) {
+      player = gltf.scene;
+      player.scale.set(1.5, 1.5, 1.5);
+      player.position.set(0, 0, 0);
+      scene.add(player);
+
+      mixer = new THREE.AnimationMixer(player);
+      const action = mixer.clipAction(gltf.animations[0]);
+      action.play();
+    },
+    undefined,
+    function(error) {
+      console.error(error);
+    }
+  );
+
+  // Fareyle kamera kontrolü (yatay sınırlı)
+  let isMouseDown = false;
+  let lastMouseX = 0;
+
+  window.addEventListener('mousedown', e => {
+    isMouseDown = true;
+    lastMouseX = e.clientX;
+  });
+  window.addEventListener('mouseup', () => {
+    isMouseDown = false;
+  });
+  window.addEventListener('mousemove', e => {
+    if (!isMouseDown) return;
+    const deltaX = e.clientX - lastMouseX;
+    lastMouseX = e.clientX;
+    cameraAngle -= deltaX * 0.005;
+    if (cameraAngle > maxCameraAngle) cameraAngle = maxCameraAngle;
+    if (cameraAngle < -maxCameraAngle) cameraAngle = -maxCameraAngle;
+  });
+
+  // Animasyon ve hareket döngüsü
+  const velocity = new THREE.Vector3(0, 0, 0);
+  const acceleration = 0.03;
+  const deceleration = 0.06;
+  const maxSpeed = 0.2;
+
   function animate() {
     requestAnimationFrame(animate);
 
-    const delta = clock.getDelta();
+    if (player && mixer) {
+      const delta = clock.getDelta();
+      mixer.update(delta);
 
-    // Hareket girişleri
-    let inputX = 0;
-    let inputZ = 0;
-
-    if(keys['w']) inputZ += 1;
-    if(keys['s']) inputZ -= 1;
-    if(keys['a']) inputX -= 1;
-    if(keys['d']) inputX += 1;
-
-    // Joystick öncelikli
-    let moveInputX = moveX !== 0 ? moveX : inputX;
-    let moveInputZ = moveZ !== 0 ? moveZ : inputZ;
-
-    // Hareket yoksa animasyon idle, varsa yürüyüş animasyonu
-    if(mixer && model) {
-      if(moveInputX !== 0 || moveInputZ !== 0) {
-        if(!walkAction || !walkAction.isRunning()) {
-          if(walkAction) walkAction.stop();
-          walkAction = mixer.clipAction(gltf.animations[1]);
-          walkAction.play();
-        }
+      // Hareket ve hız kontrolü
+      if (moveX !== 0 || moveZ !== 0) {
+        velocity.x += moveX * acceleration;
+        velocity.z += moveZ * acceleration;
       } else {
-        if(walkAction && walkAction.isRunning()) {
-          walkAction.stop();
-          mixer.clipAction(gltf.animations[0]).play();
-        }
+        velocity.x -= velocity.x * deceleration;
+        velocity.z -= velocity.z * deceleration;
+
+        if (Math.abs(velocity.x) < 0.001) velocity.x = 0;
+        if (Math.abs(velocity.z) < 0.001) velocity.z = 0;
       }
-    }
 
-    // Hareket et
-    if(model) {
-      const speed = 0.05;
-      model.position.x += moveInputX * speed;
-      model.position.z += moveInputZ * speed;
-
-      // Model yüzünü hareket yönüne çevir
-      if(moveInputX !== 0 || moveInputZ !== 0) {
-        const angle = Math.atan2(moveInputX, moveInputZ);
-        model.rotation.y = angle;
+      if (velocity.length() > maxSpeed) {
+        velocity.setLength(maxSpeed);
       }
-    }
 
-    if(mixer) mixer.update(delta);
+      player.position.x += velocity.x;
+      player.position.z += velocity.z;
 
-    // Kamera takip
-    if(model) {
-      camera.position.x = model.position.x;
-      camera.position.z = model.position.z - 10;
-      camera.position.y = model.position.y + 5;
-      camera.lookAt(model.position);
+      // Yön kontrolü
+      if (velocity.length() > 0) {
+        player.rotation.y = Math.atan2(velocity.x, velocity.z);
+      }
+
+      // Kamera takip ve sınırlandırma
+      camera.position.x = player.position.x + Math.sin(cameraAngle) * cameraDistance;
+      camera.position.z = player.position.z + Math.cos(cameraAngle) * cameraDistance;
+      camera.position.y = player.position.y + cameraHeight;
+      camera.lookAt(player.position);
     }
 
     renderer.render(scene, camera);
   }
 
-  // Başlangıç için walkAction değişkeni
-  let walkAction;
-
   animate();
 
-  // Pencere yeniden boyutlandırma
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
